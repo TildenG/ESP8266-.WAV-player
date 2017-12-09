@@ -25,7 +25,7 @@ volatile unsigned long testVariable = 0;
 volatile unsigned long nextFrequency;
 volatile boolean pinState = false;
 volatile byte speakerPin = 255; 
-#define maxBufferSize 12550 // 255
+#define maxBufferSize 255 // 255
 char buffer[2][maxBufferSize+10];
 Ticker bufferTicker;
 volatile boolean whichBuffer = 0;
