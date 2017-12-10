@@ -18,7 +18,7 @@ limitations under the License.
 #define TGpcm_h
 
 //Switches
-//#define useSD
+#define useSD
 //#define useSPIFFS
 #define Diag
 

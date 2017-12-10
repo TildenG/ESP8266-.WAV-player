@@ -25,8 +25,8 @@ volatile unsigned long testVariable = 0;
 volatile unsigned long nextFrequency;
 volatile boolean pinState = false;
 volatile byte speakerPin = 255; 
-#define maxBufferSize 255 // 255
-char buffer[2][maxBufferSize+10];
+#define maxBufferSize 1024 // 255
+char buffer[2][maxBufferSize+2];
 Ticker bufferTicker;
 volatile boolean whichBuffer = 0;
 volatile boolean isBufferEmpty[2];
@@ -38,6 +38,9 @@ volatile boolean sampleHalf; // 0 = first half of sample 1 = second half of samp
 unsigned int SAMPLE_RATE;
 boolean playing = false;
 volatile unsigned long resolution;
+volatile unsigned long timingOverhead = 3400;
+volatile unsigned long testfrequency=0;
+volatile unsigned long lastTestfrequency=0;
 
 
 TGpcm::TGpcm(byte speakerPin_){
@@ -56,19 +59,22 @@ boolean TGpcm::play(String filename){
 	if (!waveInfo(filename)){
 		return false;
 	}
-	clockCyclesPerMs = clockCyclesPerMicrosecond() * 500000; // update incase of cpu frequency change
-	if (system_get_cpu_freq() == 160)clockCyclesPerMs *= 1.3; //1.23
+	clockCyclesPerMs = system_get_cpu_freq()*1000000;//= clockCyclesPerMicrosecond() * 500000; // update incase of cpu frequency change
+	//if (system_get_cpu_freq() == 160)clockCyclesPerMs *= 1.3; //1.23
 	playing = true;
 	frequency = SAMPLE_RATE;
+	nextFrequency = frequency;
+  	if (system_get_cpu_freq() == 80 && SAMPLE_RATE == 16000)timingOverhead = 3400;
+	if (system_get_cpu_freq() == 80 && SAMPLE_RATE == 44100) system_update_cpu_freq(160); // needs to run at 160Mhz
+	if (system_get_cpu_freq() == 160 && SAMPLE_RATE == 44100) timingOverhead = 113000;
 	// fill buffers
-	for (int a=0;a<2;a++){ //TODO: make sure file size isn't bigger than buffers
-		sFile.readBytes(buffer[a], maxBufferSize);
-		isBufferEmpty[a]=false;
-		bufferLevel[a] = maxBufferSize;
+	for (int a=0;a<2;a++){
+	isBufferEmpty[a]=true;
 	}
+	checkBuffer();
 	whichBuffer = 0;
 	bufferPos = 0;
-	bufferTicker.attach_ms(10,checkBuffer);
+	bufferTicker.attach_ms(1,checkBuffer);
 	sampleHalf = 0;
 	Serial.println("");
 	timer1_disable();
@@ -132,7 +138,7 @@ boolean TGpcm::waveInfo(String filename){ // read headder
 	fileLength = readBytes(4,4);
 	resolution = pow(2,readBytes(34,2)) -1;
 	SAMPLE_RATE = readBytes(24,4);
-	range = (resolution + 1) * SAMPLE_RATE;
+	range = resolution * SAMPLE_RATE;
 	currentPos = 43; // next read will read 44
 	seek(currentPos);
 	return true;
@@ -202,10 +208,12 @@ ICACHE_RAM_ATTR void T1IntHandler(){
 /* unsigned long mod = buffer[whichBuffer][bufferPos] - 100;
 	mod = constrain(mod,0, resolution -1);
 	buffer[whichBuffer][bufferPos] = mod; */
+	timer1_write(nextFrequency);
+	timer1_enable(TIM_DIV1, TIM_EDGE, TIM_SINGLE);
+	fastDigitalWrite(speakerPin,pinState);
 	if (!sampleHalf){ // first half
 		if (buffer[whichBuffer][bufferPos] >0){
 			nextFrequency = range/buffer[whichBuffer][bufferPos];
-			//nextFrequency = range - (buffer[whichBuffer][bufferPos] * SAMPLE_RATE);
 		}
 		sampleHalf = 1;
 		pinState = true;
@@ -221,20 +229,15 @@ ICACHE_RAM_ATTR void T1IntHandler(){
 			nextFrequency = SAMPLE_RATE;
 			bufferPos++;
 		}
-/* 		Serial.print(nextFrequency);
-		Serial.print(" ");
-		Serial.println(byte(buffer[whichBuffer][bufferPos])); */
 	}else{
-		pinState = true;
+		//pinState = true;
 		nextFrequency = range / (resolution - buffer[whichBuffer][bufferPos]);
-		//nextFrequency = range - (range - (buffer[whichBuffer][bufferPos] * SAMPLE_RATE));
-		//Serial.println(nextFrequency);
 		sampleHalf = 0;
 		pinState = false;
 		bufferPos++;
-/* 		Serial.print(nextFrequency);
-		Serial.print(" ");
-		Serial.println(byte(buffer[whichBuffer][bufferPos])); */
+/* 			 testfrequency =  1.0/((micros() - lastTestfrequency)/1000000.0);
+	Serial.println(testfrequency);
+	lastTestfrequency = micros(); */
 	}
 	if (bufferPos == bufferLevel[whichBuffer]){
 		isBufferEmpty[whichBuffer] = true;
@@ -243,14 +246,13 @@ ICACHE_RAM_ATTR void T1IntHandler(){
 			stopPlaying();
 			return;
 		}
-		//fastDigitalWrite(speakerPin,LOW);
-		//checkBuffers(whichBuffer);
 		whichBuffer = !whichBuffer;
 	}
-	fastDigitalWrite(speakerPin,pinState);
-	nextFrequency = clockCyclesPerMs / nextFrequency + 562.0;// *1.30;
+	nextFrequency = clockCyclesPerMs / (nextFrequency + timingOverhead);
+	/* fastDigitalWrite(speakerPin,pinState);
+	nextFrequency = clockCyclesPerMs / nextFrequency + timingFudge;// *1.30;
 	timer1_write(nextFrequency);
-	timer1_enable(TIM_DIV1, TIM_EDGE, TIM_SINGLE);
+	timer1_enable(TIM_DIV1, TIM_EDGE, TIM_SINGLE); */
 }
 
 void fastDigitalWrite(int pin,bool State){
@@ -282,7 +284,7 @@ void checkBuffers(byte a){
 				sFile.readBytes(buffer[a], bytesLeft);
 				bufferLevel[a] = bytesLeft;
 			}
-			//if(bytesLeft)isBufferEmpty[a] = false;
+			//TODO: precalculate timing to reduce load in interupt routeen
  			#ifdef useSPIFFS
 				timer1_enable(TIM_DIV1, TIM_EDGE, TIM_SINGLE);
 			#endif 
