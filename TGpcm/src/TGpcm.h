@@ -48,10 +48,9 @@ class TGpcm
 	boolean waveInfo(String filename);
 	void disableTimer();
 	boolean seek( unsigned long pos );
-	unsigned long fPosition();
 	
+	unsigned long fPosition();
 	unsigned long currentPos;										// current byte position in file
-	unsigned long frequency; // TODO Get Real value
 	unsigned long fileLength = 0;
 };
 ICACHE_RAM_ATTR void T1IntHandler();

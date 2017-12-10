@@ -25,8 +25,8 @@ volatile unsigned long testVariable = 0;
 volatile unsigned long nextFrequency;
 volatile boolean pinState = false;
 volatile byte speakerPin = 255; 
-#define maxBufferSize 1024 // 255
-char buffer[2][maxBufferSize+2];
+#define maxBufferSize 512 // 255
+unsigned char buffer[2][maxBufferSize+2];
 Ticker bufferTicker;
 volatile boolean whichBuffer = 0;
 volatile boolean isBufferEmpty[2];
@@ -56,17 +56,18 @@ TGpcm::TGpcm(byte speakerPin_){
 	pinMode(speakerPin,OUTPUT);
 }
 boolean TGpcm::play(String filename){
+	if (playing)stopPlaying();
 	if (!waveInfo(filename)){
 		return false;
 	}
-	clockCyclesPerMs = system_get_cpu_freq()*1000000;//= clockCyclesPerMicrosecond() * 500000; // update incase of cpu frequency change
-	//if (system_get_cpu_freq() == 160)clockCyclesPerMs *= 1.3; //1.23
 	playing = true;
-	frequency = SAMPLE_RATE;
-	nextFrequency = frequency;
-  	if (system_get_cpu_freq() == 80 && SAMPLE_RATE == 16000)timingOverhead = 3400;
-	if (system_get_cpu_freq() == 80 && SAMPLE_RATE == 44100) system_update_cpu_freq(160); // needs to run at 160Mhz
-	if (system_get_cpu_freq() == 160 && SAMPLE_RATE == 44100) timingOverhead = 113000;
+	nextFrequency = SAMPLE_RATE;
+	timingOverhead = 0;
+  	if (system_get_cpu_freq() == 80 && SAMPLE_RATE == 16000)timingOverhead = 3120;//3098
+	if (system_get_cpu_freq() == 160 && SAMPLE_RATE == 16000)timingOverhead = 34145;
+	if (system_get_cpu_freq() == 80 && SAMPLE_RATE == 44100){system_update_cpu_freq(160); timingOverhead = 114000;}// needs to run at 160Mhz
+	if (system_get_cpu_freq() == 160 && SAMPLE_RATE == 44100) timingOverhead = 114000;
+	clockCyclesPerMs = system_get_cpu_freq()*1000000; // update incase of cpu frequency change
 	// fill buffers
 	for (int a=0;a<2;a++){
 	isBufferEmpty[a]=true;
@@ -81,7 +82,8 @@ boolean TGpcm::play(String filename){
 	timer1_isr_init();
 	timer1_attachInterrupt(T1IntHandler);
 	timer1_enable(TIM_DIV1, TIM_EDGE, TIM_SINGLE);
-	timer1_write(clockCyclesPerMs / frequency); // ticks before interrupt fires, maximum ticks 8388607
+	timer1_write(clockCyclesPerMs / SAMPLE_RATE); // ticks before interrupt fires, maximum ticks 8388607
+	return playing;
 }
 boolean TGpcm::waveInfo(String filename){ // read headder
 #ifdef useSPIFFS
@@ -203,6 +205,7 @@ void stopPlaying(){
 	fastDigitalWrite(speakerPin,LOW);
 	playing = false;
 	sFile.close();
+	pinState = false;
 }
 ICACHE_RAM_ATTR void T1IntHandler(){
 /* unsigned long mod = buffer[whichBuffer][bufferPos] - 100;
@@ -249,10 +252,6 @@ ICACHE_RAM_ATTR void T1IntHandler(){
 		whichBuffer = !whichBuffer;
 	}
 	nextFrequency = clockCyclesPerMs / (nextFrequency + timingOverhead);
-	/* fastDigitalWrite(speakerPin,pinState);
-	nextFrequency = clockCyclesPerMs / nextFrequency + timingFudge;// *1.30;
-	timer1_write(nextFrequency);
-	timer1_enable(TIM_DIV1, TIM_EDGE, TIM_SINGLE); */
 }
 
 void fastDigitalWrite(int pin,bool State){
