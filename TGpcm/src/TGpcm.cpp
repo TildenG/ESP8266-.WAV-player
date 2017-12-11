@@ -25,8 +25,9 @@ volatile unsigned long testVariable = 0;
 volatile unsigned long nextFrequency;
 volatile boolean pinState = false;
 volatile byte speakerPin = 255; 
-#define maxBufferSize 512 // 255
-unsigned char buffer[2][maxBufferSize+2];
+#define maxBufferSize 256 // 256
+//char buffer[2][maxBufferSize+2]; // TODO: move to checkBuffers when done to save ram
+volatile unsigned int preProcessedBuffer[2][(maxBufferSize * 2)+2];
 Ticker bufferTicker;
 volatile boolean whichBuffer = 0;
 volatile boolean isBufferEmpty[2];
@@ -63,7 +64,7 @@ boolean TGpcm::play(String filename){
 	playing = true;
 	nextFrequency = SAMPLE_RATE;
 	timingOverhead = 0;
-  	if (system_get_cpu_freq() == 80 && SAMPLE_RATE == 16000)timingOverhead = 3120;//3098
+  	if (system_get_cpu_freq() == 80 && SAMPLE_RATE == 16000)timingOverhead = 3120;
 	if (system_get_cpu_freq() == 160 && SAMPLE_RATE == 16000)timingOverhead = 34145;
 	if (system_get_cpu_freq() == 80 && SAMPLE_RATE == 44100){system_update_cpu_freq(160); timingOverhead = 114000;}// needs to run at 160Mhz
 	if (system_get_cpu_freq() == 160 && SAMPLE_RATE == 44100) timingOverhead = 114000;
@@ -78,6 +79,7 @@ boolean TGpcm::play(String filename){
 	bufferTicker.attach_ms(1,checkBuffer);
 	sampleHalf = 0;
 	Serial.println("");
+	pinState = false;
 	timer1_disable();
 	timer1_isr_init();
 	timer1_attachInterrupt(T1IntHandler);
@@ -211,11 +213,18 @@ ICACHE_RAM_ATTR void T1IntHandler(){
 /* unsigned long mod = buffer[whichBuffer][bufferPos] - 100;
 	mod = constrain(mod,0, resolution -1);
 	buffer[whichBuffer][bufferPos] = mod; */
-	timer1_write(nextFrequency);
+	
+	//timer1_write(nextFrequency);
+	timer1_write(preProcessedBuffer[whichBuffer][bufferPos]);
+	
 	timer1_enable(TIM_DIV1, TIM_EDGE, TIM_SINGLE);
 	fastDigitalWrite(speakerPin,pinState);
-	if (!sampleHalf){ // first half
-		if (buffer[whichBuffer][bufferPos] >0){
+	
+	bufferPos++;pinState = !pinState;
+	
+	
+/*  	 if (!sampleHalf){ // first half
+		if (buffer[whichBuffer][bufferPos] > 0){
 			nextFrequency = range/buffer[whichBuffer][bufferPos];
 		}
 		sampleHalf = 1;
@@ -223,26 +232,25 @@ ICACHE_RAM_ATTR void T1IntHandler(){
 		if (!buffer[whichBuffer][bufferPos]){ // off for whole sample
 			sampleHalf = 0;
 			pinState = false;
-			nextFrequency = SAMPLE_RATE;
+			nextFrequency = SAMPLE_RATE; // fix this
 			bufferPos++;
 		}
 		if (buffer[whichBuffer][bufferPos] == resolution){// on for whole sample
 			sampleHalf = 0;
 			pinState = true;
-			nextFrequency = SAMPLE_RATE;
+			nextFrequency = SAMPLE_RATE; // fix this
 			bufferPos++;
 		}
 	}else{
-		//pinState = true;
 		nextFrequency = range / (resolution - buffer[whichBuffer][bufferPos]);
 		sampleHalf = 0;
 		pinState = false;
 		bufferPos++;
-/* 			 testfrequency =  1.0/((micros() - lastTestfrequency)/1000000.0);
-	Serial.println(testfrequency);
-	lastTestfrequency = micros(); */
-	}
-	if (bufferPos == bufferLevel[whichBuffer]){
+	} 
+	nextFrequency = clockCyclesPerMs / (nextFrequency + timingOverhead); */
+		
+	if (bufferPos == bufferLevel[whichBuffer] * 2){
+	//if (bufferPos == bufferLevel[whichBuffer]){
 		isBufferEmpty[whichBuffer] = true;
 		bufferPos = 0;
 		if (bufferLevel[whichBuffer] < maxBufferSize){ // end of file
@@ -251,7 +259,7 @@ ICACHE_RAM_ATTR void T1IntHandler(){
 		}
 		whichBuffer = !whichBuffer;
 	}
-	nextFrequency = clockCyclesPerMs / (nextFrequency + timingOverhead);
+	//Serial.println(nextFrequency);
 }
 
 void fastDigitalWrite(int pin,bool State){
@@ -265,30 +273,53 @@ unsigned long TGpcm::getTV(){
 	return (double(sFile.position()) / double(fileLength)) * 100.0;//testVariable;
 }
 
-void checkBuffers(byte a){
+void checkBuffers(volatile byte a){
 	//for (int a=0;a<2;a++){
-		unsigned long bytesLeft = sFile.size() - sFile.position();
 		if (isBufferEmpty[a]){
+		char buffer[maxBufferSize];
+		volatile unsigned long bytesLeft = sFile.size() - sFile.position();
  			#ifdef useSPIFFS
 				timer1_disable();
 				fastDigitalWrite(speakerPin,LOW);
 			#endif
 			if(bytesLeft)isBufferEmpty[a] = false;
 			if (bytesLeft > maxBufferSize){
-				sFile.readBytes(buffer[a], maxBufferSize);
+				sFile.readBytes(buffer, maxBufferSize);
 				bufferLevel[a] = maxBufferSize;
 			}
 			else
 			{
-				sFile.readBytes(buffer[a], bytesLeft);
+				sFile.readBytes(buffer, bytesLeft);
 				bufferLevel[a] = bytesLeft;
 			}
 			//TODO: precalculate timing to reduce load in interupt routeen
  			#ifdef useSPIFFS
 				timer1_enable(TIM_DIV1, TIM_EDGE, TIM_SINGLE);
 			#endif 
-		}
 	//}
+		volatile int newBufferPos = 0;
+		for (volatile int b=0;b<bufferLevel[a];b++){
+	
+			if (buffer[b] > 0 && buffer[b] < resolution){
+				preProcessedBuffer[a][newBufferPos] = clockCyclesPerMs / ( (range / buffer[b]) + timingOverhead );
+				newBufferPos++;
+				preProcessedBuffer[a][newBufferPos] = clockCyclesPerMs / ( (range / (resolution - buffer[b])) + timingOverhead );
+				newBufferPos++;
+			}else if (buffer[b] == 0){
+				preProcessedBuffer[a][newBufferPos] = clockCyclesPerMs / (range + timingOverhead );
+				newBufferPos++;
+				preProcessedBuffer[a][newBufferPos] = clockCyclesPerMs / ((range / resolution) + timingOverhead );
+				newBufferPos++;
+			}else { // check this one // if (buffer[b] == resolution)
+				preProcessedBuffer[a][newBufferPos] = clockCyclesPerMs / ((range / resolution) + timingOverhead );
+				newBufferPos++;
+				preProcessedBuffer[a][newBufferPos] = clockCyclesPerMs / (range + timingOverhead );
+				newBufferPos++;
+			}
+			if (preProcessedBuffer[a][newBufferPos - 2] < 101)preProcessedBuffer[a][newBufferPos - 2] = 101; // stop clicking
+			if (preProcessedBuffer[a][newBufferPos - 1] < 101)preProcessedBuffer[a][newBufferPos - 1] = 101; // stop clicking
+		}
+	}
 }
 void checkBuffer(){
 	checkBuffers(0);
