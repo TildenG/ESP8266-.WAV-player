@@ -16,26 +16,29 @@ limitations under the License.
 */
 
 #include "src/TGpcm.h"
-#include <DNSServer.h>
-#include <ESP8266WiFi.h>
+
 extern "C" {
 	#include "user_interface.h"
 }
 TGpcm myPlayer(D1);
 
 void setup(){
-	system_update_cpu_freq(80);
+	//system_update_cpu_freq(80);
 	Serial.begin(2000000);
 	//String filename = "/fireflies.wav";
 	//String filename = "/TNGM.wav";
 	//String filename = "/alert04.wav";
+	
 	//String filename = "/WAV/ALERT04.WAV";
-	//String filename = "/WAV/FIREFL~1.WAV"; // 44110 HZ
-	//String filename = "/WAV/FIREFL~2.WAV"; // 44110 HZ 16 Bit
+	//String filename = "/WAV/FIREFL~1.WAV"; // 44110 HZ 8 Bit
+	//String filename = "/WAV/FIREFL~2.WAV"; // 44110 HZ 16 Bit Broken
 	String filename = "/WAV/FF816K.WAV";
 	//String filename = "/WAV/IMPMAR.WAV";
 	//String filename = "/WAV/TNGM.wav";
+	//String filename = "/WAV/MerryG8.WAV";
+	//String filename = "/WAV/KnowItCC.wav";
 	myPlayer.play(filename);
+	//myPlayer.play("/WAV/KnowItCC.wav");
 }
 
 void loop(){

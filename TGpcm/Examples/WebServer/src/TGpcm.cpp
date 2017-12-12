@@ -60,12 +60,8 @@ boolean TGpcm::play(String filename){
 	timingOverhead = 0;
   	if (system_get_cpu_freq() == 80 && SAMPLE_RATE == 16000)timingOverhead = 3120;
 	if (system_get_cpu_freq() == 160 && SAMPLE_RATE == 16000)timingOverhead = 34145;
-	if (system_get_cpu_freq() == 80 && SAMPLE_RATE == 44100){
-		system_update_cpu_freq(160);
-		timingOverhead = 113800;
-	}// needs to run at 160Mhz
+	if (system_get_cpu_freq() == 80 && SAMPLE_RATE == 44100){system_update_cpu_freq(160); timingOverhead = 113800;}// needs to run at 160Mhz
 	if (system_get_cpu_freq() == 160 && SAMPLE_RATE == 44100) timingOverhead = 114000;
-	if (system_get_cpu_freq() == 80 && SAMPLE_RATE == 32000) timingOverhead = 13300; //TODO: tune this in
 	if (system_get_cpu_freq() == 160 && SAMPLE_RATE == 32000) timingOverhead = 74290; //TODO: tune this in
 	clockCyclesPerMs = system_get_cpu_freq()*1000000; // update incase of cpu frequency change
 	// fill buffers
@@ -77,7 +73,7 @@ boolean TGpcm::play(String filename){
 	bufferPos = 0;
 	bufferTicker.attach_ms(1,checkBuffer);
 	Serial.println("");
-	pinState = true;
+	pinState = false;
 	timer1_disable();
 	timer1_isr_init();
 	timer1_attachInterrupt(T1IntHandler);
@@ -195,7 +191,7 @@ ICACHE_RAM_ATTR void T1IntHandler(){
 	mod = constrain(mod,0, resolution -1);
 	buffer[whichBuffer][bufferPos] = mod; */
 	timer1_write(preProcessedBuffer[whichBuffer][bufferPos]);
-	//timer1_enable(TIM_DIV1, TIM_EDGE, TIM_SINGLE);
+	timer1_enable(TIM_DIV1, TIM_EDGE, TIM_SINGLE);
 	fastDigitalWrite(speakerPin,pinState);
 	bufferPos++;
 	pinState = !pinState;
