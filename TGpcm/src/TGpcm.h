@@ -21,8 +21,8 @@ limitations under the License.
 #define useSD
 //#define useSPIFFS
 #define Diag
-#define useTimer1
-//#define useTimer0
+//#define useTimer1
+#define useTimer0
 
 #ifdef useSPIFFS
 #include <FS.h>

@@ -36,7 +36,8 @@ volatile unsigned int bufferLevel[2];
 unsigned int SAMPLE_RATE;
 boolean playing = false;
 volatile unsigned long resolution;
-volatile unsigned long timingOverhead = 3400;
+volatile unsigned long timingOverhead = 0;
+byte cpuFrequency = 0;
 
 
 TGpcm::TGpcm(byte speakerPin_){
@@ -50,6 +51,7 @@ TGpcm::TGpcm(byte speakerPin_){
 	}
 	#endif
 	pinMode(speakerPin,OUTPUT);
+	cpuFrequency = system_get_cpu_freq();
 }
 boolean TGpcm::play(String filename){
 	if (playing)stopPlaying();
@@ -59,19 +61,22 @@ boolean TGpcm::play(String filename){
 	playing = true;
 	timingOverhead = 0;
 	#ifdef useTimer1
-  	if (system_get_cpu_freq() == 80 && SAMPLE_RATE == 16000)timingOverhead = 3120;
-	if (system_get_cpu_freq() == 160 && SAMPLE_RATE == 16000)timingOverhead = 34145;
-	if (system_get_cpu_freq() == 80 && SAMPLE_RATE == 44100){
+	if (system_get_cpu_freq() == 80)timingOverhead = 230;
+	if (system_get_cpu_freq() == 160)timingOverhead = 1030;
+ 	if (system_get_cpu_freq() == 80 && SAMPLE_RATE == 44100){// needs to run at 160Mhz
 		system_update_cpu_freq(160);
-		timingOverhead = 113800;
-	}// needs to run at 160Mhz
-	if (system_get_cpu_freq() == 160 && SAMPLE_RATE == 44100) timingOverhead = 114000;
-	if (system_get_cpu_freq() == 80 && SAMPLE_RATE == 32000) timingOverhead = 13300; //TODO: tune this in
-	if (system_get_cpu_freq() == 160 && SAMPLE_RATE == 32000) timingOverhead = 74290; //TODO: tune this in
+		timingOverhead = 1030;
+	}
 	#else
-	//TODO: add timing overheads for timer 0 here
+	//TODO: adjust timing overheads for timer 0 here
+	if (system_get_cpu_freq() == 80)timingOverhead = 121;
+	if (system_get_cpu_freq() == 160)timingOverhead = 122;
+ 	if (system_get_cpu_freq() == 80 && SAMPLE_RATE == 44100){// needs to run at 160Mhz
+		system_update_cpu_freq(160);
+		timingOverhead = 122;
+	}
 	#endif
-	clockCyclesPerMs = system_get_cpu_freq()*1000000; // update incase of cpu frequency change
+	clockCyclesPerMs = system_get_cpu_freq()*1000000; // update in-case of cpu frequency change
 	// fill buffers
 	for (int a=0;a<2;a++){
 	isBufferEmpty[a]=true;
@@ -97,7 +102,7 @@ boolean TGpcm::play(String filename){
 	#endif
 	return playing;
 }
-boolean TGpcm::waveInfo(String filename){ // read headder
+boolean TGpcm::waveInfo(String filename){ // read header
 #ifdef useSPIFFS
 	sFile = SPIFFS.open(filename,"r");
 #else
@@ -115,7 +120,7 @@ boolean TGpcm::waveInfo(String filename){ // read headder
 	Serial.print(F("File name: \t\t\t"));
 	Serial.println(filename);
 	#endif
-	seek(8); // check to see if file is compatable
+	seek(8); // check to see if file is compatible
 	char wavStr[] = {'W','A','V','E'};
 	for (byte i =0; i<4; i++){
 		if(sFile.read() != wavStr[i]){
@@ -210,6 +215,7 @@ void stopPlaying(){
 	playing = false;
 	sFile.close();
 	pinState = false;
+	if (cpuFrequency != system_get_cpu_freq())system_update_cpu_freq(cpuFrequency);
 }
 ICACHE_RAM_ATTR void T1IntHandler(){
 /* unsigned long mod = buffer[whichBuffer][bufferPos] - 100;
@@ -252,7 +258,7 @@ void checkBuffers(volatile byte a){
 		volatile unsigned long bytesLeft = sFile.size() - sFile.position();
  			#ifdef useSPIFFS
 				#ifdef useTimer1
-					timer1_disable();
+					timer1_disable();//TODO: try detaching the callback to see if it cleans up the audio on timer 1
 				#else
 				#endif
 				fastDigitalWrite(speakerPin,LOW);
@@ -275,27 +281,33 @@ void checkBuffers(volatile byte a){
 			#endif 
 		volatile int newBufferPos = 0;
 		for (volatile int b=0;b<bufferLevel[a];b++){
-	
 			if (buffer[b] > 0 && buffer[b] < resolution){
-				preProcessedBuffer[a][newBufferPos] = clockCyclesPerMs / ( (range / buffer[b]) + timingOverhead );
+				preProcessedBuffer[a][newBufferPos] = (clockCyclesPerMs / ( range / buffer[b])) - timingOverhead;
 				newBufferPos++;
-				preProcessedBuffer[a][newBufferPos] = clockCyclesPerMs / ( (range / (resolution - buffer[b])) + timingOverhead );
+				preProcessedBuffer[a][newBufferPos] = (clockCyclesPerMs / ( range / (resolution - buffer[b]) )) - timingOverhead;
 				newBufferPos++;
 			}else if (buffer[b] == 0){
-				preProcessedBuffer[a][newBufferPos] = clockCyclesPerMs / (range + timingOverhead );
+				preProcessedBuffer[a][newBufferPos] = (clockCyclesPerMs / range ) - timingOverhead;
 				newBufferPos++;
-				preProcessedBuffer[a][newBufferPos] = clockCyclesPerMs / ((range / resolution) + timingOverhead );
+				preProcessedBuffer[a][newBufferPos] = (clockCyclesPerMs / (range / resolution)) - timingOverhead;
 				newBufferPos++;
 			}else {
-				preProcessedBuffer[a][newBufferPos] = clockCyclesPerMs / ((range / resolution) + timingOverhead );
+				preProcessedBuffer[a][newBufferPos] = (clockCyclesPerMs / (range / resolution )) - timingOverhead;
 				newBufferPos++;
-				preProcessedBuffer[a][newBufferPos] = clockCyclesPerMs / (range + timingOverhead );
+				preProcessedBuffer[a][newBufferPos] = (clockCyclesPerMs / range ) - timingOverhead;
 				newBufferPos++;
 			}
-			if (preProcessedBuffer[a][newBufferPos - 2] < 51)preProcessedBuffer[a][newBufferPos - 2] = 51; // stop popping sound
-			if (preProcessedBuffer[a][newBufferPos - 1] < 51)preProcessedBuffer[a][newBufferPos - 1] = 51; // stop popping sound
-			if (preProcessedBuffer[a][newBufferPos - 2] > 8388606)preProcessedBuffer[a][newBufferPos - 2] = 8388606; // avoid exceeding max ticks
-			if (preProcessedBuffer[a][newBufferPos - 1] > 8388606)preProcessedBuffer[a][newBufferPos - 1] = 8388606;
+			#ifdef useTimer1
+				if (preProcessedBuffer[a][newBufferPos - 2] < 31)preProcessedBuffer[a][newBufferPos - 2] = 31; // stop popping sound
+				else if (preProcessedBuffer[a][newBufferPos - 2] > 8388606)preProcessedBuffer[a][newBufferPos - 2] = 31; // avoid exceeding max ticks 8388606
+				if (preProcessedBuffer[a][newBufferPos - 1] < 31)preProcessedBuffer[a][newBufferPos - 1] = 31; // stop popping sound
+				else if (preProcessedBuffer[a][newBufferPos - 1] > 8388606)preProcessedBuffer[a][newBufferPos - 1] = 31;
+			#else
+				if (preProcessedBuffer[a][newBufferPos - 2] < 101)preProcessedBuffer[a][newBufferPos - 2] = 101; // stop popping sound
+				else if (preProcessedBuffer[a][newBufferPos - 2] > 8388606)preProcessedBuffer[a][newBufferPos - 2] = 101; // avoid exceeding max ticks 8388606
+				if (preProcessedBuffer[a][newBufferPos - 1] < 101)preProcessedBuffer[a][newBufferPos - 1] = 101; // stop popping sound
+				else if (preProcessedBuffer[a][newBufferPos - 1] > 8388606)preProcessedBuffer[a][newBufferPos - 1] = 101;
+			#endif
 		}
 	}
 }

@@ -16,6 +16,7 @@ limitations under the License.
 */
 #pragma GCC optimize ("-O2")
 #include "src/TGpcm.h"
+//#include <ESP8266WiFi.h>
 
 extern "C" {
 	#include "user_interface.h"
@@ -24,19 +25,20 @@ TGpcm myPlayer(D1);
 
 void setup(){
 	//system_update_cpu_freq(80);
+	//WiFi.mode(WIFI_OFF);
 	Serial.begin(2000000);
 	//String filename = "/fireflies.wav";
 	//String filename = "/TNGM.wav";
 	//String filename = "/alert04.wav";
 	
-	//String filename = "/WAV/ALERT04.WAV";
+	//String filename = "/WAV/ALERT04.WAV";  // 32000 HZ 8 bit
 	//String filename = "/WAV/FIREFL~1.WAV"; // 44110 HZ 8 Bit
 	//String filename = "/WAV/FIREFL~2.WAV"; // 44110 HZ 16 Bit Broken
-	String filename = "/WAV/FF816K.WAV";
-	//String filename = "/WAV/IMPMAR.WAV";
-	//String filename = "/WAV/TNGM.wav";
-	//String filename = "/WAV/MerryG8.WAV";
-	//String filename = "/WAV/KnowItCC.wav";
+	//String filename = "/WAV/FF816K.WAV";	// 16000 HZ 8 bit
+	String filename = "/WAV/IMPMAR.WAV"; // 32000 HZ 8 bit
+	//String filename = "/WAV/TNGM.wav"; // 16000 HZ 8 bit
+	//String filename = "/WAV/MerryG8.WAV"; // 44100HZ 8 bit
+	//String filename = "/WAV/KnowItCC.wav"; // 16000HZ 8 bit
 	myPlayer.play(filename);
 	//myPlayer.play("/WAV/KnowItCC.wav");
 }
