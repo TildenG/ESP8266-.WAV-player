@@ -31,11 +31,11 @@ void setup(){
 	//String filename = "/TNGM.wav";
 	//String filename = "/alert04.wav";
 	
-	//String filename = "/WAV/ALERT04.WAV";  // 32000 HZ 8 bit
+	String filename = "/WAV/ALERT04.WAV";  // 32000 HZ 8 bit
 	//String filename = "/WAV/FIREFL~1.WAV"; // 44110 HZ 8 Bit
 	//String filename = "/WAV/FIREFL~2.WAV"; // 44110 HZ 16 Bit Broken
 	//String filename = "/WAV/FF816K.WAV";	// 16000 HZ 8 bit
-	String filename = "/WAV/IMPMAR.WAV"; // 32000 HZ 8 bit
+	//String filename = "/WAV/IMPMAR.WAV"; // 32000 HZ 8 bit
 	//String filename = "/WAV/TNGM.wav"; // 16000 HZ 8 bit
 	//String filename = "/WAV/MerryG8.WAV"; // 44100HZ 8 bit
 	//String filename = "/WAV/KnowItCC.wav"; // 16000HZ 8 bit

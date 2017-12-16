@@ -14,24 +14,28 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 #include "WebFiles.h"
+//#define FS_NO_GLOBALS //allow spiffs to coexist with SD card, define BEFORE including FS.h
+#include <FS.h> //spiff file system
 
 void sendFile(String path, ESP8266WebServer * server){
-  Serial.println("handleFileRead: " + path);
-  if(path.endsWith("/")) path += "index.html";
-  Serial.println(path);
-  String contentType = getContentType(path);
-  String pathWithGz = path + ".gz";
-  if(SPIFFS.exists(pathWithGz) || SPIFFS.exists(path)){
-    if(SPIFFS.exists(pathWithGz))
-      path += ".gz";
-    fs::File file = SPIFFS.open(path, "r");
-	server->setContentLength(file.size());
-    size_t sent = server->streamFile(file, contentType);
-    file.close();
-    return;
-  }
-  Serial.println("Failed to read file" + path);
-  server->send(404, "text/plain", "Failed to read file.");
+	SPIFFS.begin();
+	Serial.println("handleFileRead: " + path);
+	if(path.endsWith("/")) path += "index.html";
+	Serial.println(path);
+	String contentType = getContentType(path);
+	String pathWithGz = path + ".gz";
+	if(SPIFFS.exists(pathWithGz) || SPIFFS.exists(path)){
+		if(SPIFFS.exists(pathWithGz))
+		path += ".gz";
+		//fs::File file = SPIFFS.open(path, "r");
+		File file = SPIFFS.open(path, "r");
+		server->setContentLength(file.size());
+		size_t sent = server->streamFile(file, contentType);
+		file.close();
+		return;
+	}
+	Serial.println("Failed to read file " + path);
+	server->send(404, "text/plain", "Failed to read file.");
   return;
 }
 

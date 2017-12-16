@@ -16,8 +16,6 @@ limitations under the License.
 #pragma GCC optimize ("-O2")
 #include <ESP8266WiFi.h>
 #include <ESP8266WebServer.h>
-#define FS_NO_GLOBALS //allow spiffs to coexist with SD card, define BEFORE including FS.h
-#include <FS.h> //spiff file system
 
 void sendFile(String path, ESP8266WebServer * server);
 String getContentType(String path);

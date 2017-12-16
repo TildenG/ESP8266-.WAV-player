@@ -1,7 +1,7 @@
 <!doctype html>
 <html>
-  <head>
-    <title>Hat</title>
+<head>
+<title>Sound Menu</title>
 <!-- 		Copyright 2017, Tilden Groves.
 
 Licensed under the Apache License, Version 2.0 (the "License");
@@ -16,31 +16,31 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
 -->
-    <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width">    
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, height=device-height, user-scalable=yes">
+
     <style>
-    body{
-     background-color: #000;
-	 background-image: url("images/christmas_cards.jpg");
-	 background-repeat: no-repeat;
-     background-attachment: fixed;
-     background-position: center; 
-	 background-size: auto 100%;
-	 width: 100%;
-	 height: 100%;
-	 color: white;
-     font-size: 20px;
-     text-shadow: 2px 2px Black;
+body{
+	margin: auto;
+	background-color: #333;
+	<!-- background-image: url("img/background.png"); -->
+	width: 100%;
+	height: 100%;
+	color: white;
+	font-size: 20px;
+	text-shadow: 2px 2px Black;
     }
-    </style>
-  </head>
-  <body>
-  <table style="position:absolute;width:100%;top: 31%;"><tr><th style="width:31%"></th>
-    <th style="width:33%"><span><form action='/' method='POST'><br>
-  Enter New Scrolling Text:<br><input type='text' name='NEWTEXT' placeholder='new text'><br>
-  <input type='submit' name='SUBMIT' value='Submit'></form><br></span></th>
-    <th style="width:33%"></th>
-    </tr>
-    </table>
+	</style>
+    </head>
+<body>
+<br><form action='/' method='POST'>
+<button type="submit" value="B1" name="B1">Fire Flies</button><br><br>
+<button type="submit" value="B2" name="B2">Imperial March</button><br><br>
+<button type="submit" value="B3" name="B3">Merry Christmas</button><br><br>
+<button type="submit" value="B4" name="B4">Next Gen Theme</button><br><br><br>
+<button type="submit" value="stop" name="stop">Stop</button><br>
+</form>
+<br><br>
 </body>
 </html>
+
