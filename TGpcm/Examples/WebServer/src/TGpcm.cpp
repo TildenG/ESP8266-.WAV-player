@@ -24,8 +24,8 @@ File sFile;
 volatile unsigned long testVariable = 0;
 volatile boolean pinState = false;
 volatile byte speakerPin = 255; 
-#define maxBufferSize 256
-volatile unsigned int preProcessedBuffer[2][(maxBufferSize * 2)];
+#define maxBufferSize 512 // 256
+volatile unsigned long preProcessedBuffer[2][(maxBufferSize * 2)];
 Ticker bufferTicker;
 volatile boolean whichBuffer = 0;
 volatile boolean isBufferEmpty[2];
@@ -38,7 +38,9 @@ boolean playing = false;
 volatile unsigned long resolution;
 volatile unsigned long timingOverhead = 0;
 byte cpuFrequency = 0;
-
+volatile unsigned int bytesPerSample;
+volatile byte maxVolume = 10;
+volatile byte volume = maxVolume;
 
 TGpcm::TGpcm(byte speakerPin_){
 	speakerPin = speakerPin_;
@@ -51,6 +53,7 @@ TGpcm::TGpcm(byte speakerPin_){
 	}
 	#endif
 	pinMode(speakerPin,OUTPUT);
+	fastDigitalWrite(speakerPin,LOW);
 	cpuFrequency = system_get_cpu_freq();
 }
 boolean TGpcm::play(String filename){
@@ -68,7 +71,6 @@ boolean TGpcm::play(String filename){
 		timingOverhead = 1030;
 	}
 	#else
-	//TODO: adjust timing overheads for timer 0 here
 	if (system_get_cpu_freq() == 80)timingOverhead = 121;
 	if (system_get_cpu_freq() == 160)timingOverhead = 122;
  	if (system_get_cpu_freq() == 80 && SAMPLE_RATE == 44100){// needs to run at 160Mhz
@@ -157,10 +159,11 @@ boolean TGpcm::waveInfo(String filename){ // read header
 	delay(5);
 	#endif
 	fileLength = readBytes(4,4);
+	bytesPerSample = readBytes(32,2);
 	resolution = pow(2,readBytes(34,2)) -1;
 	SAMPLE_RATE = readBytes(24,4);
 	range = resolution * SAMPLE_RATE;
-	currentPos = 43; // next read will read 44
+	currentPos = 43+1; // next read will read 44
 	seek(currentPos);
 	return true;
 }
@@ -233,9 +236,10 @@ ICACHE_RAM_ATTR void T1IntHandler(){
 	if (bufferPos == bufferLevel[whichBuffer] * 2){
 		isBufferEmpty[whichBuffer] = true;
 		bufferPos = 0;
-		if (bufferLevel[whichBuffer] < maxBufferSize){ // end of file
+		if ((bufferLevel[whichBuffer] < maxBufferSize) || (isBufferEmpty[0] && isBufferEmpty[1])){ // end of file
 			stopPlaying();
 			return;
+			Serial.println("STOP");
 		}
 		whichBuffer = !whichBuffer;
 	}
@@ -251,11 +255,16 @@ void fastDigitalWrite(int pin,bool State){
 unsigned long TGpcm::getTV(){
 	return (double(sFile.position()) / double(fileLength)) * 100.0;//testVariable;
 }
-
+void TGpcm::increaseVolume(){
+	if (volume < (maxVolume + maxVolume * 1.5))volume++; // alow overdrive
+}
+void TGpcm::decreaseVolume(){
+	if (volume > 1)volume--;
+}
 void checkBuffers(volatile byte a){
 		if (isBufferEmpty[a]){
-		char buffer[maxBufferSize];
-		volatile unsigned long bytesLeft = sFile.size() - sFile.position();
+		char buffer[maxBufferSize*bytesPerSample];
+		volatile unsigned long bytesLeft = (sFile.size() - sFile.position())/bytesPerSample; // samples left
  			#ifdef useSPIFFS
 				#ifdef useTimer1
 					timer1_disable();//TODO: try detaching the callback to see if it cleans up the audio on timer 1
@@ -280,13 +289,16 @@ void checkBuffers(volatile byte a){
 				#endif
 			#endif 
 		volatile int newBufferPos = 0;
-		for (volatile int b=0;b<bufferLevel[a];b++){
-			if (buffer[b] > 0 && buffer[b] < resolution){
-				preProcessedBuffer[a][newBufferPos] = (clockCyclesPerMs / ( range / buffer[b])) - timingOverhead;
+		for (volatile int b=0;b<bufferLevel[a]*bytesPerSample;b = b + bytesPerSample){
+			volatile unsigned long bufferSample = readBufferBytes(buffer,b,bytesPerSample);
+			if (bufferSample > 0 && bufferSample < resolution){
+				preProcessedBuffer[a][newBufferPos] = (clockCyclesPerMs / ( range / bufferSample)) - timingOverhead;
+				//Serial.println(preProcessedBuffer[a][newBufferPos]);
 				newBufferPos++;
-				preProcessedBuffer[a][newBufferPos] = (clockCyclesPerMs / ( range / (resolution - buffer[b]) )) - timingOverhead;
+				preProcessedBuffer[a][newBufferPos] = (clockCyclesPerMs / ( range / (resolution - bufferSample) )) - timingOverhead;
+				//Serial.println(preProcessedBuffer[a][newBufferPos]);
 				newBufferPos++;
-			}else if (buffer[b] == 0){
+			}else if (bufferSample == 0){
 				preProcessedBuffer[a][newBufferPos] = (clockCyclesPerMs / range ) - timingOverhead;
 				newBufferPos++;
 				preProcessedBuffer[a][newBufferPos] = (clockCyclesPerMs / (range / resolution)) - timingOverhead;
@@ -314,4 +326,19 @@ void checkBuffers(volatile byte a){
 void checkBuffer(){
 	checkBuffers(0);
 	checkBuffers(1);
+}
+unsigned long readBufferBytes(char * buff,int pos,byte numberOfBytes){
+		volatile uint16_t dataBytes = buff[pos];
+		/* Serial.print("Bytes ");
+		Serial.print(byte(buff[pos]));
+		Serial.print(" ");
+		Serial.println(byte(buff[pos+1])); */
+	    for (byte i =8; i<numberOfBytes*8; i+=8){
+			pos++;
+			dataBytes = buff[pos] << i | dataBytes;
+		}
+		//Serial.print("long ");
+		//Serial.println(dataBytes);
+		if (SAMPLE_RATE != 32000) return dataBytes * float(volume / 10.0); //TODO: fix volume not working on 32K samples
+		return dataBytes;
 }

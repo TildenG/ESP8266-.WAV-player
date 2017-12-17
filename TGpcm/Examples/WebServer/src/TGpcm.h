@@ -44,6 +44,8 @@ class TGpcm
 	boolean play(String filename);
 	unsigned long getTV();
 	void stop();
+	void increaseVolume();
+	void decreaseVolume();
 	
 	private:
 	unsigned long readBytes(int pos,byte numberOfBytes);
@@ -60,4 +62,5 @@ void fastDigitalWrite(int pin,bool State);
 void checkBuffers(byte);
 void stopPlaying();
 void checkBuffer();
+unsigned long readBufferBytes(char * buff,int pos,byte numberOfBytes);
 #endif

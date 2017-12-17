@@ -1,6 +1,6 @@
 /*
 Example file for new Wave player for ESP8266.
-upload the webpage to the ESP8266 using https://github.com/esp8266/arduino-esp8266fs-plugin
+upload the web page to the ESP8266 using https://github.com/esp8266/arduino-esp8266fs-plugin
 add you own wave files to the SD card.
 
 Copyright 2017, Tilden Groves.
@@ -31,9 +31,11 @@ TGpcm myPlayer(D1);
 Ticker DNSTicker;
 ESP8266WebServer server(80);
 DNSServer dnsServer;
+Ticker outputTicker;
 
 void handleRoot(){
   Serial.println("Enter Index page");
+  sendFile(server.uri(),&server);
   if (server.hasArg("B1")){
 	myPlayer.play("/WAV/FF816K.WAV");
   }else if (server.hasArg("B2")){
@@ -44,8 +46,33 @@ void handleRoot(){
 	myPlayer.play("/WAV/TNGM.WAV");
   }else if (server.hasArg("stop")){
 	myPlayer.stop();
+  }else if (server.hasArg("B5")){ // random
+	int picker = random(1, 2 + 1);
+	switch (picker){
+		case 1:
+			myPlayer.play("/WAV/ALERT04.WAV");
+		break;
+		case 2:
+			myPlayer.play("/WAV/KnowItCC.wav");
+		break;
+		case 3:
+			myPlayer.play("/WAV/FF816K.WAV");
+		break;
+		case 4:
+			myPlayer.play("/WAV/FF816K.WAV");
+		break;
+		case 5:
+			myPlayer.play("/WAV/FF816K.WAV");
+		break;
+		default:
+		break;
+	}
+  }else if (server.hasArg("B6")){ // volume up
+	myPlayer.increaseVolume();
+  }else if (server.hasArg("B7")){ // volume down
+	myPlayer.decreaseVolume();
   }
-	sendFile(server.uri(),&server);
+		
 }
 
 void handleNotFound(){
@@ -54,15 +81,14 @@ void handleNotFound(){
 
 void setup(){
 	//system_update_cpu_freq(80);
-	Serial.begin(2000000);
+	Serial.begin(1000000);
 	setupWiFi();
 	DNSTicker.attach_ms(20,DNS);
+	outputTicker.attach_ms(3000,output);
 	Serial.println(F("\r\nType Music.com into your web browser"));
 }
 
 void loop(){
-	if (myPlayer.isPlaying()) Serial.println(myPlayer.getTV() + String("%"));
-	delay(1000);
 	server.handleClient();
 }
 
@@ -84,4 +110,13 @@ void setupWiFi(){ // setup AP, start DNS server, start Web server
 	server.on("/", handleRoot);
 	server.onNotFound(handleNotFound);
 	server.begin();
+}
+void output(){
+	if (myPlayer.isPlaying()) Serial.println(myPlayer.getTV() + String("%"));
+}
+void noReply(){
+	//server.send(204, "", "");
+	//String header = F("HTTP/1.1 204 No Content\r\nConnection: Close\r\n\r\n");
+	//String header = F("HTTP/1.1 404 Not Found\r\nConnection: Close\r\ncontent-length: 0\r\n\r\n");
+    //server.sendContent(header);
 }

@@ -1,5 +1,6 @@
 /*
 Example file for new Wave player for ESP8266
+
 Copyright 2017, Tilden Groves.
 
 Licensed under the Apache License, Version 2.0 (the "License");
@@ -22,20 +23,21 @@ extern "C" {
 	#include "user_interface.h"
 }
 TGpcm myPlayer(D1);
+//TGpcm myPlayer(D2,D1); // push pull to double volume TODO: test this
 
 void setup(){
 	//system_update_cpu_freq(80);
 	//WiFi.mode(WIFI_OFF);
-	Serial.begin(2000000);
+	Serial.begin(1000000);
 	//String filename = "/fireflies.wav";
 	//String filename = "/TNGM.wav";
 	//String filename = "/alert04.wav";
 	
-	String filename = "/WAV/ALERT04.WAV";  // 32000 HZ 8 bit
+	//String filename = "/WAV/ALERT04.WAV";  // 32000 HZ 8 bit
 	//String filename = "/WAV/FIREFL~1.WAV"; // 44110 HZ 8 Bit
 	//String filename = "/WAV/FIREFL~2.WAV"; // 44110 HZ 16 Bit Broken
 	//String filename = "/WAV/FF816K.WAV";	// 16000 HZ 8 bit
-	//String filename = "/WAV/IMPMAR.WAV"; // 32000 HZ 8 bit
+	String filename = "/WAV/IMPMAR.WAV"; // 32000 HZ 8 bit
 	//String filename = "/WAV/TNGM.wav"; // 16000 HZ 8 bit
 	//String filename = "/WAV/MerryG8.WAV"; // 44100HZ 8 bit
 	//String filename = "/WAV/KnowItCC.wav"; // 16000HZ 8 bit
@@ -46,9 +48,9 @@ void setup(){
 void loop(){
 	if (myPlayer.isPlaying())Serial.println(myPlayer.getTV() + String("%"));
 	if (!myPlayer.isPlaying()){
-	delay(10000);
-	String filename = "/WAV/TNGM.wav";
-	myPlayer.play(filename);
+		delay(10000);
+		String filename = "/WAV/TNGM.wav";
+		myPlayer.play(filename);
 	}
 	delay(5100);
 }
