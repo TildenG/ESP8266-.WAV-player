@@ -34,45 +34,61 @@ DNSServer dnsServer;
 Ticker outputTicker;
 
 void handleRoot(){
-  Serial.println("Enter Index page");
-  sendFile(server.uri(),&server);
+  Serial.println(F("Enter Index page"));
   if (server.hasArg("B1")){
 	myPlayer.play("/WAV/FF816K.WAV");
+	returnOK();
   }else if (server.hasArg("B2")){
 	myPlayer.play("/WAV/IMPMAR.WAV");
+	returnOK();
   }else if (server.hasArg("B3")){
 	myPlayer.play("/WAV/MerryG8.WAV");
+	returnOK();
   }else if (server.hasArg("B4")){
 	myPlayer.play("/WAV/TNGM.WAV");
+	returnOK();
   }else if (server.hasArg("stop")){
 	myPlayer.stop();
+	returnOK();
   }else if (server.hasArg("B5")){ // random
 	int picker = random(1, 2 + 1);
 	switch (picker){
 		case 1:
 			myPlayer.play("/WAV/ALERT04.WAV");
+			returnOK();
 		break;
 		case 2:
 			myPlayer.play("/WAV/KnowItCC.wav");
+			returnOK();
 		break;
 		case 3:
 			myPlayer.play("/WAV/FF816K.WAV");
+			returnOK();
 		break;
 		case 4:
 			myPlayer.play("/WAV/FF816K.WAV");
+			returnOK();
 		break;
 		case 5:
 			myPlayer.play("/WAV/FF816K.WAV");
+			returnOK();
 		break;
 		default:
 		break;
 	}
   }else if (server.hasArg("B6")){ // volume up
 	myPlayer.increaseVolume();
+	returnOK();
   }else if (server.hasArg("B7")){ // volume down
 	myPlayer.decreaseVolume();
+	returnOK();
+  }else{//default action
+  sendFile(server.uri(),&server);
   }
-		
+
+}
+void returnOK() {
+  server.send(204, "text/html", "");
 }
 
 void handleNotFound(){
@@ -113,10 +129,4 @@ void setupWiFi(){ // setup AP, start DNS server, start Web server
 }
 void output(){
 	if (myPlayer.isPlaying()) Serial.println(myPlayer.getTV() + String("%"));
-}
-void noReply(){
-	//server.send(204, "", "");
-	//String header = F("HTTP/1.1 204 No Content\r\nConnection: Close\r\n\r\n");
-	//String header = F("HTTP/1.1 404 Not Found\r\nConnection: Close\r\ncontent-length: 0\r\n\r\n");
-    //server.sendContent(header);
 }

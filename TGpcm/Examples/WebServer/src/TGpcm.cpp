@@ -23,8 +23,10 @@ extern "C" {
 File sFile;
 volatile unsigned long testVariable = 0;
 volatile boolean pinState = false;
-volatile byte speakerPin = 255; 
+volatile byte speakerPin = 255;
+volatile byte speakerPin2 = 255;
 #define maxBufferSize 512 // 256
+#define cspin D8
 volatile unsigned long preProcessedBuffer[2][(maxBufferSize * 2)];
 Ticker bufferTicker;
 volatile boolean whichBuffer = 0;
@@ -47,13 +49,30 @@ TGpcm::TGpcm(byte speakerPin_){
 	#ifdef useSPIFFS
 		SPIFFS.begin();
 	#else
-	if (!SD.begin(D8)) {
+	if (!SD.begin(cspin)) {
 		Serial.println("initialization failed!");
 		return;
 	}
 	#endif
 	pinMode(speakerPin,OUTPUT);
 	fastDigitalWrite(speakerPin,LOW);
+	cpuFrequency = system_get_cpu_freq();
+}
+TGpcm::TGpcm(byte speakerPin_, byte speakerPin2_){
+	speakerPin = speakerPin_;
+	speakerPin2 = speakerPin2_;
+	#ifdef useSPIFFS
+		SPIFFS.begin();
+	#else
+	if (!SD.begin(cspin)) {
+		Serial.println("initialization failed!");
+		return;
+	}
+	#endif
+	pinMode(speakerPin,OUTPUT);
+	pinMode(speakerPin2,OUTPUT);
+	fastDigitalWrite(speakerPin,LOW);
+	fastDigitalWrite(speakerPin2,LOW);
 	cpuFrequency = system_get_cpu_freq();
 }
 boolean TGpcm::play(String filename){
@@ -221,15 +240,13 @@ void stopPlaying(){
 	if (cpuFrequency != system_get_cpu_freq())system_update_cpu_freq(cpuFrequency);
 }
 ICACHE_RAM_ATTR void T1IntHandler(){
-/* unsigned long mod = buffer[whichBuffer][bufferPos] - 100;
-	mod = constrain(mod,0, resolution -1);
-	buffer[whichBuffer][bufferPos] = mod; */
 	#ifdef useTimer1
 		timer1_write(preProcessedBuffer[whichBuffer][bufferPos]);
 	#else
 		timer0_write((ESP.getCycleCount() + preProcessedBuffer[whichBuffer][bufferPos]));
 	#endif
 	fastDigitalWrite(speakerPin,pinState);
+	if(speakerPin2!=255)fastDigitalWrite(speakerPin2,(!pinState));
 	bufferPos++;
 	pinState = !pinState;
 	
@@ -239,7 +256,6 @@ ICACHE_RAM_ATTR void T1IntHandler(){
 		if ((bufferLevel[whichBuffer] < maxBufferSize) || (isBufferEmpty[0] && isBufferEmpty[1])){ // end of file
 			stopPlaying();
 			return;
-			Serial.println("STOP");
 		}
 		whichBuffer = !whichBuffer;
 	}

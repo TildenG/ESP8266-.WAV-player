@@ -26,6 +26,7 @@ volatile boolean pinState = false;
 volatile byte speakerPin = 255;
 volatile byte speakerPin2 = 255;
 #define maxBufferSize 512 // 256
+#define cspin D8
 volatile unsigned long preProcessedBuffer[2][(maxBufferSize * 2)];
 Ticker bufferTicker;
 volatile boolean whichBuffer = 0;
@@ -48,7 +49,7 @@ TGpcm::TGpcm(byte speakerPin_){
 	#ifdef useSPIFFS
 		SPIFFS.begin();
 	#else
-	if (!SD.begin(D8)) {
+	if (!SD.begin(cspin)) {
 		Serial.println("initialization failed!");
 		return;
 	}
@@ -63,7 +64,7 @@ TGpcm::TGpcm(byte speakerPin_, byte speakerPin2_){
 	#ifdef useSPIFFS
 		SPIFFS.begin();
 	#else
-	if (!SD.begin(D8)) {
+	if (!SD.begin(cspin)) {
 		Serial.println("initialization failed!");
 		return;
 	}

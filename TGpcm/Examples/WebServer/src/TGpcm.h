@@ -40,6 +40,7 @@ class TGpcm
 {
 	public:
 	TGpcm(byte speakerPin_);
+	TGpcm(byte speakerPin_,byte speakerPin2_);
 	boolean isPlaying();
 	boolean play(String filename);
 	unsigned long getTV();

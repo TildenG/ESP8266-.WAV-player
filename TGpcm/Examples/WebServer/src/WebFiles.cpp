@@ -19,7 +19,8 @@ limitations under the License.
 
 void sendFile(String path, ESP8266WebServer * server){
 	SPIFFS.begin();
-	Serial.println("handleFileRead: " + path);
+	Serial.print(F("handleFileRead: "));
+	Serial.println(path);
 	if(path.endsWith("/")) path += "index.html";
 	Serial.println(path);
 	String contentType = getContentType(path);
@@ -34,8 +35,9 @@ void sendFile(String path, ESP8266WebServer * server){
 		file.close();
 		return;
 	}
-	Serial.println("Failed to read file " + path);
-	server->send(404, "text/plain", "Failed to read file.");
+	Serial.println(F("Failed to read file "));
+	Serial.println(path);
+	server->send(404, F("text/plain"), F("Failed to read file."));
   return;
 }
 
